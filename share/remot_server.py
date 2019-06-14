@@ -20,10 +20,12 @@ def get_thermal() :
             if len(data) >= 4800 :
                 break
 
-        image = np.ndarray(shape=(60, 80), dtype='uint8')
-        for i in range(0, 60) : 
-            for j in range(0, 80) :
-	        image[i][j] = data[i * 80 + j]
+        image = np.ndarray(shape=(240, 320), dtype='short')
+	for i in range(0, 60) :
+    	    for j in range(0, 80) :
+                for k in range(0, 4) :
+                    for l in range(0 , 4) :
+                        image[i * 4 + k][j * 4 + l] = data[i * 80 + j]
 
         cv2.imwrite('test.png', image)
         print("get thermal success")
