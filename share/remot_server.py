@@ -23,10 +23,9 @@ def get_thermal() :
         image = np.ndarray(shape=(240, 320), dtype='short')
 	for i in range(0, 60) :
     	    for j in range(0, 80) :
-                for k in range(0, 4) :
-                    for l in range(0 , 4) :
-                        image[i * 4 + k][j * 4 + l] = data[i * 80 + j]
+                image[i * 4 + k][j * 4 + l] = data[i * 80 + j]
 
+	image = cv2.resize(image, (320, 240), interpolation = cv2.INTER_LINEAR)
         cv2.imwrite('test.png', image)
         print("get thermal success")
         time.sleep(30)
