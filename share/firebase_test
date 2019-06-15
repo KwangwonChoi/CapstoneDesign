@@ -3,7 +3,10 @@ import firebase_supporter as firebase
 def stream_handler(message):
     print(message)
 
+#모듈 생성
 fb = firebase.FirebaseSupporter()
 
+#메세지 보낼 때 호출
 fb.alertRegistration(user="KwangwonChoi",state="alert",details="high fever")
+#리스너와 메세지 받았을 때의 함수 등록. 함수의 파라미터는 1로 해야해
 fb.listenMessage(stream_handler)
