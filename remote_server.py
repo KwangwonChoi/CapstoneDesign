@@ -3,8 +3,10 @@ from socket import *
 import numpy as np
 import cv2
 import time
+import face_harr2 as harr
 
 def get_thermal() :
+    count = 0
     while True :
         thermalSock = socket(AF_INET, SOCK_STREAM)
         thermalSock.connect(('20.20.1.4', 8080))
@@ -17,14 +19,26 @@ def get_thermal() :
                 break
 
         image = np.ndarray(shape=(60, 80), dtype='uint8')
-        for i in range(0, 60) :
-            for j in range(0, 80) :
-	            image[i][j] = data[i * 80 + j]
+        
+        for i in range(0, 60):
+            for j in range(0, 80):
+                image[i][j] = data[i * 80 + j]
 
-        cv2.imwrite('test.png', image)
-        print("get thermal success")
+        image = cv2.resize(image, (320, 240), interpolation=cv2.INTER_LINEAR)
 
-        waiting_second(2)
+        name = "./photos/tst" + str(count) + ".png"
+        count += 1
+        cv2.imwrite(name, image)
+
+        bbox = harr.detection_face_harr(image)
+
+        if len(bbox) == 0 :
+            print("failure to detection!")
+            waiting_second(2)
+        else:
+            print("success to detecton!")
+            print(bbox)
+            waiting_second(3)
 
 def motion_detect() :
     motionSock = socket(AF_INET, SOCK_STREAM)
