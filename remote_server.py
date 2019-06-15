@@ -83,8 +83,9 @@ def calcluate_thermal(image, bbox) :
     return totalThermal
 
 def check_thermal(thermalArr) :
-    for i in range(10, 0) :
-        print("온도변화폭은 종휘가 알려줄거에요")
+    print("온도변화폭은 종휘가 알려줄거에요")
+    if(abs(thermalArr[9] - thermalArr[0])) > 2000 :
+        print("사람이 차가워 지고 있어요.. 냉동인간인가 봐요..")
 
 def check_motion(motionArr) :
     cnt = 0
