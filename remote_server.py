@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 import time
 import face_harr2 as harr
+import firebase_supporter as firebase
 
 def get_thermal():
     count = 0
@@ -61,6 +62,11 @@ def motion_detect():
             check_motion(motionArr)
         waiting_second(1)
 
+def messegeGUI() :
+    fb = firebase.FirebaseSupporter()
+
+    fb.alertRegistration(user="KwangwonChoi", state="alert", details="high fever") #details는 GUI에서 받아오도록.
+    fb.listenMessage(messageCallback) #쓰레드 돌면서 주기적으로 메세지 확인. 메세지 확인시 messageCallback함수 호출
 
 def waiting_second(second):
     for i in range(0, second):
@@ -93,6 +99,9 @@ def check_motion(motionArr) :
         if(motionArr[i] == "true") :
             return;
     print("1분 동안 움직임이 없어요.. 진짜 죽었나봐요 ㅜㅜ")
+
+def messageCallback(message):
+    print(message) #현재는 일단 메세지지만 GUI에서 알림창 하나 띄우도록.
 
 print("thread start")
 thermal_t = threading.Thread(target=get_thermal, args=())
