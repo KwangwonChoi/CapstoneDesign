@@ -1,0 +1,9 @@
+import firebase_supporter as firebase
+
+def stream_handler(message):
+    print(message)
+
+fb = firebase.FirebaseSupporter()
+
+fb.alertRegistration(user="KwangwonChoi",state="alert",details="high fever")
+fb.listenMessage(stream_handler)
