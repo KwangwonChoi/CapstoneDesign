@@ -5,6 +5,8 @@ import cv2
 import time
 import face_harr2 as harr
 import firebase_supporter as firebase
+import ctypes  # An included library with Python install.
+import tkinter
 
 def get_thermal():
     count = 0
@@ -62,11 +64,45 @@ def motion_detect():
             check_motion(motionArr)
         waiting_second(1)
 
-def messegeGUI() :
-    fb = firebase.FirebaseSupporter()
+def messageGUI() :
+    def messageCallback(message):
+        ctypes.windll.user32.MessageBoxW(0, "연락이 왔습니다! 확인해주세요" + message, "알림", 0)
 
-    fb.alertRegistration(user="KwangwonChoi", state="alert", details="high fever") #details는 GUI에서 받아오도록.
+    def btn() :
+        name = totxt.get()
+        context = contexttxt.get("1.0", 'end-1c')
+        print("보호자 : ", name, "    보낼내용 : ", context)
+        fb.alertRegistration(user=name, state="alert", details=context) #details는 GUI에서 받아오도록.
+    fb = firebase.FirebaseSupporter()
     fb.listenMessage(messageCallback) #쓰레드 돌면서 주기적으로 메세지 확인. 메세지 확인시 messageCallback함수 호출
+
+    window = tkinter.Tk()
+    window.title("Capston_Window")
+    window.geometry("480x480+100+100")
+    window.resizable(False, False)
+
+    tolabel = tkinter.Label(window, text="보호자 : ")
+    tolabel.grid(row="0", column="0")
+    totxt = tkinter.Entry(window)
+    totxt.config(width=50)
+    totxt.grid(row="0", column="1")
+
+    contextlabel = tkinter.Label(window, text="보낼 내용 : ")
+    contextlabel.grid(row="1", column="0")
+    contexttxt = tkinter.Text(window)
+    contexttxt.config(width=50, height=10)
+    contexttxt.grid(row="1", column="1")
+
+    """
+    getlabel = tkinter.Label(window, text="받은 내용 : ")
+    getlabel.grid(row="3", column="0")
+    gettxt = tkinter.LabelFrame(window, width=355, height=100)
+    gettxt.grid(row="3", column="1")
+    """
+    btn = tkinter.Button(window, text="전송", command=btn)
+    btn.grid(row="4", column="1")
+
+    window.mainloop()
 
 def waiting_second(second):
     for i in range(0, second):
@@ -100,12 +136,11 @@ def check_motion(motionArr) :
             return;
     print("1분 동안 움직임이 없어요.. 진짜 죽었나봐요 ㅜㅜ")
 
-def messageCallback(message):
-    print(message) #현재는 일단 메세지지만 GUI에서 알림창 하나 띄우도록.
-
 print("thread start")
 thermal_t = threading.Thread(target=get_thermal, args=())
 motion_t = threading.Thread(target=motion_detect, args=())
+gui_t = threading.Thread(target=messageGUI, args=())
 
 motion_t.start()
 thermal_t.start()
+gui_t.start()
