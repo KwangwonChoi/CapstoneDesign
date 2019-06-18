@@ -2,36 +2,42 @@ import threading
 from socket import *
 import numpy as np
 import cv2
-import time
 import face_harr2 as harr
 import firebase_supporter as firebase
 import ctypes  # An included library with Python install.
 import tkinter
+import json
+from time import sleep
 
 def get_thermal():
     count = 0
-    thermalArr = list()
+
 
     while True:
         thermalSock = socket(AF_INET, SOCK_STREAM)
         thermalSock.connect(('20.20.1.4', 8080))
-        data = np.array([], dtype="uint8")
+
+        data = []
+
+        length = thermalSock.recv(5)
+        length = int(json.loads(length))
+
         while True:
             temp = thermalSock.recv(1024)
-            temp = np.frombuffer(temp, 'uint8')
-            data = np.append(data, temp)
-            if len(data) >= 4800:
+            data += temp
+
+            if len(data) >= length:
                 break
 
-        image = np.ndarray(shape=(60, 80), dtype='uint8')
+        data = json.loads(bytearray(data).decode("utf-8"))
 
-        for i in range(0, 60):
-            for j in range(0, 80):
-                image[i][j] = data[i * 80 + j]
+        np_data = np.array(data,np.uint16)
+        np_data = np.right_shift(np_data,8,np_data)
+        np_data = np.asarray(np_data, dtype=np.uint8)
 
-        image = cv2.resize(image, (320, 240), interpolation=cv2.INTER_LINEAR)
+        image = np_data.reshape((60,80))
 
-        name = "./thermal_image/tst" + str(count) + ".png"
+        name = "tst" + str(count) + ".png"
         count += 1
         cv2.imwrite(name, image)
 
@@ -39,41 +45,58 @@ def get_thermal():
 
         if len(bbox) == 0:
             print("failure to detection!")
-            waiting_second(2)
+            sleep(2)
+
         else:
-            print("success to detecton!")
-            thermalArr.append(int(calcluate_thermal(image, bbox)))
-            if len(thermalArr) > 10 :
-                del thermalArr[0]
-            check_thermal(thermalArr)
-            waiting_second(3)
+            for b in bbox:
+                isValidRect, curThermal = calculate_thermal(data, b)
+
+                if isValidRect:
+                    print("success to detecton!")
+
+                    if abs(curThermal - 36.5) > 2:
+                        fb.alertRegistration("KwangwonChoi","alert","danger")
+                    else:
+                        fb.alertRegistration("DoyoungKim","normal","정상")
+
+            sleep(2)
 
 def motion_detect():
-    motionArr = list()
     motionSock = socket(AF_INET, SOCK_STREAM)
     motionSock.connect(('20.20.1.4', 8081))
+    falseCnt = 0
     while True:
         data = (motionSock.recv(1024)).decode('utf-8')
         if data == "true":
-            print("모션감지!! ", data)
-        else :
-            print("죽었나봐요!!")
-        motionArr.append(data)
-        if len(motionArr) >= 60 :
-            del motionArr[0]
-            check_motion(motionArr)
-        waiting_second(1)
+            falseCnt = 0
+
+        if falseCnt >= 2000:
+            fb.alertRegistration("DoyoungKim","dead","Don't move")
+            falseCnt = 0
+
+        falseCnt += 1
+
+        sleep(0.1)
+
 
 def messageGUI() :
+
     def messageCallback(message):
-        ctypes.windll.user32.MessageBoxW(0, "연락이 왔습니다! 확인해주세요" + message, "알림", 0)
+        dict = message[1]
+
+        alertMessage = "환자 이름 : " + dict['id']\
+                    + "\n제목 :" + dict['title']\
+                    + "\n내용 : " + dict['contents']
+
+        ctypes.windll.user32.MessageBoxW(0, alertMessage , "알림", 0)
+
 
     def btn() :
         name = totxt.get()
         context = contexttxt.get("1.0", 'end-1c')
         print("보호자 : ", name, "    보낼내용 : ", context)
         fb.alertRegistration(user=name, state="alert", details=context) #details는 GUI에서 받아오도록.
-    fb = firebase.FirebaseSupporter()
+
     fb.listenMessage(messageCallback) #쓰레드 돌면서 주기적으로 메세지 확인. 메세지 확인시 messageCallback함수 호출
 
     window = tkinter.Tk()
@@ -93,49 +116,41 @@ def messageGUI() :
     contexttxt.config(width=50, height=10)
     contexttxt.grid(row="1", column="1")
 
-    """
-    getlabel = tkinter.Label(window, text="받은 내용 : ")
-    getlabel.grid(row="3", column="0")
-    gettxt = tkinter.LabelFrame(window, width=355, height=100)
-    gettxt.grid(row="3", column="1")
-    """
     btn = tkinter.Button(window, text="전송", command=btn)
     btn.grid(row="4", column="1")
 
     window.mainloop()
 
-def waiting_second(second):
-    for i in range(0, second):
-        print(i + 1, '초 대기중...')
-        time.sleep(1)
+def calculate_thermaldata(value):
+    return (value - 27315) / 100
 
-def calcluate_thermal(image, bbox) :
-    x = bbox[0][0]
-    y = bbox[0][1]
-    w = bbox[0][0] + bbox[0][2]
-    h = bbox[0][1] + bbox[0][3]
+def calculate_thermal(data, bbox) :
+    x = bbox[0]
+    y = bbox[1]
+    w = bbox[0] + bbox[2]
+    h = bbox[1] + bbox[3]
     totalThermal = 0
     cnt = 0
+    isValidRect = True
+
     for i in range(x, h):
         for j in range(y, w):
-            totalThermal += image[i][j]
-            cnt += 1
 
-    totalThermal = (totalThermal / cnt) * 255
-    return totalThermal
+            celcius = calculate_thermaldata(data[i][j][0])
 
-def check_thermal(thermalArr) :
-    print("온도변화폭은 종휘가 알려줄거에요")
-    if(abs(thermalArr[9] - thermalArr[0])) > 2000 :
-        print("사람이 차가워 지고 있어요.. 냉동인간인가 봐요..")
+            if celcius >= 35 and celcius <= 41:
+                totalThermal += celcius
+                cnt += 1
 
-def check_motion(motionArr) :
-    cnt = 0
-    for i in range(60, 0) :
-        if(motionArr[i] == "true") :
-            return;
-    print("1분 동안 움직임이 없어요.. 진짜 죽었나봐요 ㅜㅜ")
+    totalThermal = (totalThermal / cnt)
 
+    if ( cnt / w * h ) <= 0.5:
+        isValidRect = False
+
+    return isValidRect, totalThermal
+
+
+fb = firebase.FirebaseSupporter()
 print("thread start")
 thermal_t = threading.Thread(target=get_thermal, args=())
 motion_t = threading.Thread(target=motion_detect, args=())
